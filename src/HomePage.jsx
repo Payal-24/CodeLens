@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import ProfileMenu from './ProfileMenu';
 
 const navItems = [
   { label: 'Home', href: '#home' },
@@ -77,15 +78,19 @@ function HomePage() {
   const [scrolled, setScrolled] = useState(false);
   const [activeLine, setActiveLine] = useState(0);
   const [activeSection, setActiveSection] = useState('home');
-  const [profileOpen, setProfileOpen] = useState(false);
-
   const [profile, setProfile] = useState(getStoredUser);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setProfile(null);
+  };
 
   useEffect(() => {
     const token = localStorage.getItem("token");
 
     if (!token) {
-      console.log("No JWT token found");
+      setProfile(null);
       return;
     }
 
@@ -98,9 +103,12 @@ function HomePage() {
       .then(async (response) => {
         const data = await response.json();
 
-        console.log("Profile API:", data);
-
         if (!response.ok) {
+          if (response.status === 401 || response.status === 403) {
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+            setProfile(null);
+          }
           throw new Error(data.message || "Profile request failed");
         }
 
@@ -108,11 +116,18 @@ function HomePage() {
       })
       .then((data) => {
         setProfile(data.user);
+        localStorage.setItem("user", JSON.stringify(data.user));
       })
       .catch((error) => {
         console.log("Profile error:", error);
       });
 
+    const handleStorageChange = () => {
+      setProfile(getStoredUser());
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
   useEffect(() => {
@@ -233,31 +248,7 @@ function HomePage() {
           <div className={`navbar__actions ${mobileMenuOpen ? 'is-open' : ''}`}>
 
             {profile ? (
-              <div className="profile-menu">
-                <button
-                  className="profile-button"
-                  type="button"
-                  aria-expanded={profileOpen}
-                  aria-label="Open profile"
-                  onClick={() => setProfileOpen((open) => !open)}
-                >
-                  <span className="profile-button__avatar">{profile.name?.charAt(0).toUpperCase()}</span>
-                  <span className="profile-button__name">{profile.name}</span>
-                  <span className="profile-button__chevron">⌄</span>
-                </button>
-
-                {profileOpen && (
-                  <div className="profile-popover">
-                    <strong>{profile.name}</strong>
-                    <span>{profile.email}</span>
-                    <div className="profile-streak">
-                      <span className="profile-streak__icon">✦</span>
-                      <span><b>{Number(localStorage.getItem('codelens-active-days') || 0)}</b> day streak</span>
-                    </div>
-                    <a href="/editor" className="profile-popover__link">Open workspace →</a>
-                  </div>
-                )}
-              </div>
+              <ProfileMenu profile={profile} onLogout={handleLogout} />
             ) : (
               <a href="/login" className="nav-link">Login</a>
             )}

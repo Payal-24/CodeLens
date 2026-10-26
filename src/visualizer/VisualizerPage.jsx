@@ -7,6 +7,7 @@ import { SORTING_ALGORITHMS, SEARCHING_ALGORITHMS } from './algorithmData';
 import { generateSortingSteps } from './sortingAlgorithms';
 import { generateSearchingSteps } from './searchingAlgorithms';
 import { sound, dispatchVisualStepSound } from './soundEngine';
+import ProfileMenu from '../ProfileMenu';
 
 // Default array generator helper
 function generateArray(size = 14, type = 'random') {
@@ -47,6 +48,21 @@ export default function VisualizerPage() {
   // Visual Theme & Sound
   const [theme, setTheme] = useState('matrix'); // 'matrix' | 'candy' | 'sunset' | 'cyber'
   const [soundEnabled, setSoundEnabled] = useState(true);
+
+  // User Profile
+  const [profile, setProfile] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('user') || 'null');
+    } catch {
+      return null;
+    }
+  });
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setProfile(null);
+  };
 
   // Array Configuration
   const [arraySize, setArraySize] = useState(14);
@@ -358,6 +374,14 @@ export default function VisualizerPage() {
             <a href="/editor" className="button button--ghost button--small">
               Code Editor 💻
             </a>
+
+            {profile ? (
+              <ProfileMenu profile={profile} onLogout={handleLogout} />
+            ) : (
+              <a href="/login" className="button button--ghost button--small">
+                Login
+              </a>
+            )}
           </div>
         </div>
       </header>

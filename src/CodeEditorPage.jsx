@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DEMO_CODE, executeJava } from './executionEngine';
 import { sound } from './visualizer/soundEngine';
+import ProfileMenu from './ProfileMenu';
 
 const speeds = [
   { label: '0.5×', value: 1000 },
@@ -112,6 +113,21 @@ function CodeEditorPage() {
   const [speed, setSpeed] = useState(450);
   const [inputError, setInputError] = useState('');
 
+  const [profile, setProfile] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('user') || 'null');
+    } catch {
+      return null;
+    }
+  });
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setProfile(null);
+    navigate("/login");
+  };
+
   useEffect(() => {
     if (!localStorage.getItem('token')) {
       navigate('/login', { replace: true });
@@ -216,6 +232,7 @@ function CodeEditorPage() {
           <span className="workspace-status"><span /> Java subset</span>
           <a className="button button--primary button--small" href="/visualizer">⚡ Algorithm Visualizer</a>
           <a className="button button--ghost button--small" href="/home">Exit workspace</a>
+          {profile && <ProfileMenu profile={profile} onLogout={handleLogout} />}
         </div>
       </header>
 

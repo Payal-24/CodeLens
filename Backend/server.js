@@ -102,8 +102,17 @@ app.post("/api/signup", async (req, res) => {
             });
         }
 
+        const cleanEmail = email.trim().toLowerCase();
+        const cleanName = name.trim();
+
+        if (password.length < 6) {
+            return res.status(400).json({
+                message: "Password must be at least 6 characters long"
+            });
+        }
+
         const existingUser = await User.findOne({
-            email: email
+            email: cleanEmail
         });
 
         if (existingUser) {
@@ -115,15 +124,27 @@ app.post("/api/signup", async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
 
         const user = new User({
-            name: name,
-            email: email,
+            name: cleanName,
+            email: cleanEmail,
             password: hashedPassword
         });
 
         await user.save();
 
+        const token = jwt.sign(
+            {
+                userId: user._id,
+                email: user.email
+            },
+            JWT_SECRET,
+            {
+                expiresIn: "7d"
+            }
+        );
+
         res.status(201).json({
             message: "Signup successful",
+            token: token,
             user: {
                 name: user.name,
                 email: user.email
@@ -134,7 +155,7 @@ app.post("/api/signup", async (req, res) => {
         console.log("SIGNUP ERROR:", error);
 
         res.status(500).json({
-            message: "Signup failed"
+            message: "Signup failed. Please try again."
         });
     }
 });
@@ -143,20 +164,44 @@ app.post("/api/login", async (req, res) => {
     try {
         const { email, password } = req.body;
 
+        if (!email || !password) {
+            return res.status(400).json({
+                message: "Please fill all fields"
+            });
+        }
+
+        const cleanEmail = email.trim().toLowerCase();
+
         const user = await User.findOne({
-            email: email
+            email: cleanEmail
         });
 
         if (!user) {
             return res.status(404).json({
-                message: "User not found"
+                message: "User not found with this email"
             });
         }
 
-        const isPasswordCorrect = await bcrypt.compare(
-            password,
-            user.password
-        );
+        let isPasswordCorrect = false;
+        try {
+            isPasswordCorrect = await bcrypt.compare(
+                password,
+                user.password
+            );
+        } catch (e) {
+            isPasswordCorrect = false;
+        }
+
+        // Support and auto-upgrade legacy plain text password
+        if (!isPasswordCorrect && user.password === password) {
+            isPasswordCorrect = true;
+            try {
+                user.password = await bcrypt.hash(password, 10);
+                await user.save();
+            } catch (err) {
+                console.log("Password hash upgrade failed:", err);
+            }
+        }
 
         if (!isPasswordCorrect) {
             return res.status(401).json({
@@ -171,11 +216,11 @@ app.post("/api/login", async (req, res) => {
             },
             JWT_SECRET,
             {
-                expiresIn: "1h"
+                expiresIn: "7d"
             }
         );
 
-        console.log("JWT TOKEN:", token);
+        console.log("JWT TOKEN GENERATED FOR:", user.email);
 
         res.json({
             message: "Login successful",
@@ -190,7 +235,7 @@ app.post("/api/login", async (req, res) => {
         console.log("LOGIN ERROR:", error);
 
         res.status(500).json({
-            message: "Login failed"
+            message: "Login failed. Please try again."
         });
     }
 });
